@@ -4,23 +4,19 @@
 
 using namespace std;
 
-namespace open_abb_driver
-{
-		
-	string ABBProtocol::PingRobot()
-	{
+namespace open_abb_driver {
+
+  string ABBProtocol::PingRobot() {
 		string msg("00 ");//instruction code;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetCartesian( double x, double y, double z, double qw, double qx, 
-								  double qy, double qz, bool linear )
-	{
+
+  string ABBProtocol::SetCartesian( double x, double y, double z, double qw, double qx, double qy, double qz, bool linear ) {
 		char buff[20];
 		string msg("01 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
 		sprintf(buff,"%+08.1lf ",y);
@@ -38,16 +34,14 @@ namespace open_abb_driver
 		sprintf(buff,"%.1d ", linear);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetJoints( double joint1, double joint2, double joint3, double joint4, 
-							   double joint5, double joint6 )
-	{
+
+  string ABBProtocol::SetJoints( double joint1, double joint2, double joint3, double joint4, double joint5, double joint6 ) {
 		char buff[20];
 		string msg("02 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.2lf ",joint1);
 		msg += buff;
 		sprintf(buff,"%+08.2lf ",joint2);
@@ -61,32 +55,28 @@ namespace open_abb_driver
 		sprintf(buff,"%+08.2lf ",joint6);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::GetCartesian()
-	{
+
+  string ABBProtocol::GetCartesian() {
 		string msg("03 ");//instruction code;
-		
+
 		msg += "#";
 		return (msg);
 	}
-	
-	string ABBProtocol::GetJoints()
-	{
+
+  string ABBProtocol::GetJoints() {
 		string msg("04 ");//instruction code;
-		
+
 		msg += "#";
 		return (msg);
 	}
-	
-	string ABBProtocol::SetTool( double x, double y, double z, double qw, double qx, 
-							 double qy, double qz )
-	{
+
+  string ABBProtocol::SetTool( double x, double y, double z, double qw, double qx, double qy, double qz ) {
 		char buff[20];
 		string msg("06 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
 		sprintf(buff,"%+08.1lf ",y);
@@ -102,16 +92,14 @@ namespace open_abb_driver
 		sprintf(buff,"%+08.5lf ",qz);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetWorkObject( double x, double y, double z, double qw, double qx, 
-								   double qy, double qz )
-	{
+
+  string ABBProtocol::SetWorkObject( double x, double y, double z, double qw, double qx, double qy, double qz ) {
 		char buff[20];
 		string msg("07 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
 		sprintf(buff,"%+08.1lf ",y);
@@ -127,30 +115,27 @@ namespace open_abb_driver
 		sprintf(buff,"%+08.5lf ",qz);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetSpeed( double tcp, double ori )
-	{
+
+  string ABBProtocol::SetSpeed( double tcp, double ori ) {
 		char buff[20];
 		string msg("08 ");//instruction code;
-		
+
 		sprintf(buff,"%08.1lf ",tcp);
 		msg += buff;
 		sprintf(buff,"%08.2lf ",ori);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	
-	string ABBProtocol::SetZone( bool fine, double tcp_mm, double ori_mm, double ori_deg )
-	{
+
+  string ABBProtocol::SetZone( bool fine, double tcp_mm, double ori_mm, double ori_deg ) {
 		char buff[20];
 		string msg("09 ");//instruction code;
-		
+
 		sprintf(buff,"%.1d ",fine);
 		msg += buff;
 		sprintf(buff,"%.2lf ", tcp_mm);
@@ -160,15 +145,35 @@ namespace open_abb_driver
 		sprintf(buff,"%.2lf ", ori_deg);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetSoftness( double s1, double s2, double s3, double s4, double s5, double s6 )
-	{
+
+  string ABBProtocol::GetDIO( std::string DIO_num ) {
+    string msg("10 ");//instruction code;
+
+    msg += DIO_num;
+    msg += " #";
+
+    return (msg);
+  }
+
+  string ABBProtocol::SetDIO( int state, std::string DIO_num ) {
+    char buff[20];
+    string msg("11 ");//instruction code;
+
+    sprintf(buff,"%d ", state);
+    msg += buff;
+    msg += DIO_num;
+    msg += " #";
+
+    return (msg);
+  }
+
+  string ABBProtocol::SetSoftness( double s1, double s2, double s3, double s4, double s5, double s6 ) {
 		char buff[20];
-		string msg("11 ");//instruction code;
-		
+    string msg("12 ");//instruction code;
+
 		sprintf(buff,"%.2lf ", s1);
 		msg += buff;
 		sprintf(buff,"%.2lf ", s2);
@@ -182,60 +187,52 @@ namespace open_abb_driver
 		sprintf(buff,"%.2lf ", s6);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	std::string ABBProtocol::AddWaypoint( double joint1, double joint2, double joint3,
-										  double joint4, double joint5, double joint6,
-										  double duration )
-	{
+
+  string ABBProtocol::AddCartesianWaypoint( double x, double y, double z, double qw, double qx, double qy, double qz ) {
 		char buff[20];
 		string msg("30 ");//instruction code;
-		
-		sprintf(buff,"%+08.2lf ",joint1);
+
+		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
-		sprintf(buff,"%+08.2lf ",joint2);
+		sprintf(buff,"%+08.1lf ",y);
 		msg += buff;
-		sprintf(buff,"%+08.2lf ",joint3);
+		sprintf(buff,"%+08.1lf ",z);
 		msg += buff;
-		sprintf(buff,"%+08.2lf ",joint4);
+		sprintf(buff,"%+08.5lf ",qw);
 		msg += buff;
-		sprintf(buff,"%+08.2lf ",joint5);
+		sprintf(buff,"%+08.5lf ",qx);
 		msg += buff;
-		sprintf(buff,"%+08.2lf ",joint6);
+		sprintf(buff,"%+08.5lf ",qy);
 		msg += buff;
-		sprintf(buff,"%+04.6lf ",duration);
+		sprintf(buff,"%+08.5lf ",qz);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::ClearWaypoints()
-	{
-		string msg("31 #"); // instruction code		
+
+  string ABBProtocol::ClearWaypointBuffer() {
+		string msg("31 #"); // instruction code
 		return msg;
 	}
-	
-	string ABBProtocol::GetNumWaypoints()
-	{
+
+  string ABBProtocol::GetBufferSize() {
 		string msg( "32 #" );
 		return msg;
 	}
-	
-	string ABBProtocol::ExecuteWaypoints()
-	{
+
+  string ABBProtocol::ExecuteBuffer() {
 		string msg( "33 #" );
 		return msg;
 	}
-	
-	string ABBProtocol::SetCircularCenter( double x, double y, double z,
-										   double qw, double qx, double qy, double qz )
-	{
+
+  string ABBProtocol::SetCircularCenter( double x, double y, double z, double qw, double qx, double qy, double qz ) {
 		char buff[20];
 		string msg("35 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
 		sprintf(buff,"%+08.1lf ",y);
@@ -251,16 +248,14 @@ namespace open_abb_driver
 		sprintf(buff,"%+08.5lf ",qz);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::SetCircularTarget( double x, double y, double z,
-										   double qw, double qx, double qy, double qz )
-	{
+
+  string ABBProtocol::SetCircularTarget( double x, double y, double z, double qw, double qx, double qy, double qz ) {
 		char buff[20];
 		string msg("36 ");//instruction code;
-		
+
 		sprintf(buff,"%+08.1lf ",x);
 		msg += buff;
 		sprintf(buff,"%+08.1lf ",y);
@@ -276,28 +271,24 @@ namespace open_abb_driver
 		sprintf(buff,"%+08.5lf ",qz);
 		msg += buff;
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	string ABBProtocol::GetRobotInfo()
-	{
+
+  string ABBProtocol::GetRobotInfo() {
 		string msg( "98 #" );
 		return msg;
 	}
-	
-	string ABBProtocol::CloseConnection()
-	{
+
+  string ABBProtocol::CloseConnection() {
 		string msg("99 ");//instruction code;
-		
+
 		msg += "#";
-		
+
 		return (msg);
 	}
-	
-	int ABBProtocol::ParseCartesian( const std::string& msg, double* x, double* y, double* z,
-								 double* qw, double* qx, double* qy, double* qz )
-	{
+
+  int ABBProtocol::ParseCartesian( const std::string& msg, double* x, double* y, double* z, double* qw, double* qx, double* qy, double* qz ) {
 		int ok, idCode;
 		sscanf(msg.c_str(),"%d %d %lf %lf %lf %lf %lf %lf %lf",&idCode,&ok,x,y,z,qw,qx,qy,qz);
 		if (ok)
@@ -305,9 +296,8 @@ namespace open_abb_driver
 		else
 			return -1;
 	}
-	
-	int ABBProtocol::ParseJoints( const std::string& msg, std::array<double,6>& position )
-	{
+
+  int ABBProtocol::ParseJoints( const std::string& msg, std::array<double,6>& position ) {
 		int ok, idCode;
 		sscanf(msg.c_str(),"%d %d %lf %lf %lf %lf %lf %lf",&idCode,&ok,
 			   &position[0], &position[1], &position[2], &position[3], &position[4], &position[5]);
@@ -316,5 +306,14 @@ namespace open_abb_driver
 		else
 			return -1;
 	}
-	
+
+  int ABBProtocol::ParseDIO( const std::string& msg, int* state ) {
+    int ok, idCode;
+    sscanf(msg.c_str(),"%d %d %d",&idCode,&ok,state);
+    if (ok)
+      return idCode;
+    else
+      return -1;
+  }
+
 }

@@ -1,0 +1,23 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/opt/ros/noetic/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/devel/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/beginner_tutorial/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/iai_kinect2_opencv4/kinect2_bridge/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/iai_kinect2_opencv4/kinect2_calibration/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/iai_kinect2_opencv4/kinect2_registration/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/kinect2_rgb/include/**",
+        "/home/chris/eye-in-hand_pose_estimation/catkin_ws/src/open_abb/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ],
+  "version": 4
+}

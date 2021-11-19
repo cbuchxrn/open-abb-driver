@@ -8,42 +8,53 @@
 #include "open_abb_driver/ABBKinematics.h"
 
 #include <memory>
-#include <ros/ros.h>
 
 namespace open_abb_driver
 {
-
-struct JointFeedback
-{
-	std::string date;
-	std::string time;
-	ros::Time stamp;
-	std::array<double,6> joints;
-};
-
-class ABBFeedbackInterface 
-{
-public:
+	struct JointFeedback
+	{
+		std::string date;
+		std::string time;
+		std::array<double,6> joints;
+	};
 	
-	typedef std::shared_ptr<ABBFeedbackInterface> Ptr;
-	
-	
-	ABBFeedbackInterface( const std::string& ip, int port, size_t bufferSize = 10 );
-	~ABBFeedbackInterface();
-	
-	void Spin();
-	bool HasFeedback() const;
-	JointFeedback GetFeedback();
-	
-private:
-	
-	mutable boost::mutex mutex;
-	int loggerSocket;
-	
-	boost::circular_buffer<JointFeedback> outgoing;
-	
-};
-
+	struct CartesianFeedback
+	{
+		std::string date;
+		std::string time;
+		double x;
+		double y;
+		double z;
+		double qw;
+		double qx;
+		double qy;
+		double qz;
+	};
+		
+	typedef boost::variant< JointFeedback, CartesianFeedback > Feedback;
+		
+	class ABBFeedbackInterface 
+	{
+	public:
+		
+		typedef std::shared_ptr<ABBFeedbackInterface> Ptr;
+		
+		
+		ABBFeedbackInterface( const std::string& ip, int port, size_t bufferSize = 10 );
+		~ABBFeedbackInterface();
+		
+		void Spin();
+		bool HasFeedback() const;
+		Feedback GetFeedback();
+		
+	private:
+		
+		mutable boost::mutex mutex;
+		int loggerSocket;
+		
+		boost::circular_buffer<Feedback> outgoing;
+		
+	};
 }
 
 #endif

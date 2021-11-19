@@ -1,3 +1,0 @@
-#Service to query number of joint waypoints
----
-int32 numWaypoints

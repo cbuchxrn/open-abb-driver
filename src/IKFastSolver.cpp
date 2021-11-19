@@ -5,7 +5,7 @@
 /// you may not use this file except in compliance with the License.
 /// You may obtain a copy of the License at
 ///     http://www.apache.org/licenses/LICENSE-2.0
-/// 
+///
 /// Unless required by applicable law or agreed to in writing, software
 /// distributed under the License is distributed on an "AS IS" BASIS,
 /// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -84,31 +84,31 @@ using namespace std; // necessary to get std math routines
 #ifdef IKFAST_NAMESPACE
 namespace IKFAST_NAMESPACE {
 	#endif
-	
+
 	inline float IKabs(float f) { return fabsf(f); }
 	inline double IKabs(double f) { return fabs(f); }
-	
+
 	inline float IKsqr(float f) { return f*f; }
 	inline double IKsqr(double f) { return f*f; }
-	
+
 	inline float IKlog(float f) { return logf(f); }
 	inline double IKlog(double f) { return log(f); }
-	
+
 	// allows asin and acos to exceed 1
 	#ifndef IKFAST_SINCOS_THRESH
 	#define IKFAST_SINCOS_THRESH ((IkReal)0.000001)
 	#endif
-	
+
 	// used to check input to atan2 for degenerate cases
 	#ifndef IKFAST_ATAN2_MAGTHRESH
 	#define IKFAST_ATAN2_MAGTHRESH ((IkReal)2e-6)
 	#endif
-	
+
 	// minimum distance of separate solutions
 	#ifndef IKFAST_SOLUTION_THRESH
 	#define IKFAST_SOLUTION_THRESH ((IkReal)1e-6)
 	#endif
-	
+
 	inline float IKasin(float f)
 	{
 		IKFAST_ASSERT( f > -1-IKFAST_SINCOS_THRESH && f < 1+IKFAST_SINCOS_THRESH ); // any more error implies something is wrong with the solver
@@ -123,7 +123,7 @@ namespace IKFAST_NAMESPACE {
 		else if( f >= 1 ) return IKPI_2;
 		return asin(f);
 	}
-	
+
 	// return positive value in [0,y)
 	inline float IKfmod(float x, float y)
 	{
@@ -132,7 +132,7 @@ namespace IKFAST_NAMESPACE {
 		}
 		return fmodf(x,y);
 	}
-	
+
 	// return positive value in [0,y)
 	inline double IKfmod(double x, double y)
 	{
@@ -141,7 +141,7 @@ namespace IKFAST_NAMESPACE {
 		}
 		return fmod(x,y);
 	}
-	
+
 	inline float IKacos(float f)
 	{
 		IKFAST_ASSERT( f > -1-IKFAST_SINCOS_THRESH && f < 1+IKFAST_SINCOS_THRESH ); // any more error implies something is wrong with the solver
@@ -184,7 +184,7 @@ namespace IKFAST_NAMESPACE {
 		}
 		return atan2(fy,fx);
 	}
-	
+
 	inline float IKsign(float f) {
 		if( f > 0 ) {
 			return float(1);
@@ -194,7 +194,7 @@ namespace IKFAST_NAMESPACE {
 		}
 		return 0;
 	}
-	
+
 	inline double IKsign(double f) {
 		if( f > 0 ) {
 			return 1.0;
@@ -204,7 +204,7 @@ namespace IKFAST_NAMESPACE {
 		}
 		return 0;
 	}
-	
+
 	/// solves the forward kinematics equations.
 	/// \param pfree is an array specifying the free joints of the chain.
 	IKFAST_API void ComputeFk(const IkReal* j, IkReal* eetrans, IkReal* eerot) {
@@ -276,20 +276,20 @@ namespace IKFAST_NAMESPACE {
 		IkReal x53=((IkReal(1.00000000000000))*(x1));
 		eetrans[2]=((IkReal(0.615000000000000))+(((IkReal(-0.135000000000000))*(x28)))+(((x29)*(((((IkReal(-0.0850000000000000))*(x25)))+(((x17)*(x4)))))))+(((IkReal(-0.755000000000000))*(x30)))+(((x6)*(((((IkReal(-0.0850000000000000))*(x30)))+(((IkReal(-1.00000000000000))*(x17)*(x53)))))))+(((x1)*(x13)))+(((IkReal(-1.00000000000000))*(x21)*(x53)))+(((IkReal(0.705000000000000))*(x1))));
 	}
-	
+
 	IKFAST_API int GetNumFreeParameters() { return 0; }
 	IKFAST_API int* GetFreeParameters() { return NULL; }
 	IKFAST_API int GetNumJoints() { return 6; }
-	
+
 	IKFAST_API int GetIkRealSize() { return sizeof(IkReal); }
-	
+
 	IKFAST_API int GetIkType() { return 0x67000001; }
-	
+
 	class IKSolver {
 	public:
 		IkReal j0,cj0,sj0,htj0,j1,cj1,sj1,htj1,j2,cj2,sj2,htj2,j3,cj3,sj3,htj3,j4,cj4,sj4,htj4,j5,cj5,sj5,htj5,new_r00,r00,rxp0_0,new_r01,r01,rxp0_1,new_r02,r02,rxp0_2,new_r10,r10,rxp1_0,new_r11,r11,rxp1_1,new_r12,r12,rxp1_2,new_r20,r20,rxp2_0,new_r21,r21,rxp2_1,new_r22,r22,rxp2_2,new_px,px,npx,new_py,py,npy,new_pz,pz,npz,pp;
 		unsigned char _ij0[2], _nj0,_ij1[2], _nj1,_ij2[2], _nj2,_ij3[2], _nj3,_ij4[2], _nj4,_ij5[2], _nj5;
-		
+
 		bool ComputeIk(const IkReal* eetrans, const IkReal* eerot, const IkReal* pfree, IkSolutionListBase<IkReal>& solutions) {
 			j0=numeric_limits<IkReal>::quiet_NaN(); _ij0[0] = -1; _ij0[1] = -1; _nj0 = -1; j1=numeric_limits<IkReal>::quiet_NaN(); _ij1[0] = -1; _ij1[1] = -1; _nj1 = -1; j2=numeric_limits<IkReal>::quiet_NaN(); _ij2[0] = -1; _ij2[1] = -1; _nj2 = -1; j3=numeric_limits<IkReal>::quiet_NaN(); _ij3[0] = -1; _ij3[1] = -1; _nj3 = -1; j4=numeric_limits<IkReal>::quiet_NaN(); _ij4[0] = -1; _ij4[1] = -1; _nj4 = -1; j5=numeric_limits<IkReal>::quiet_NaN(); _ij5[0] = -1; _ij5[1] = -1; _nj5 = -1; 
 			for(int dummyiter = 0; dummyiter < 1; ++dummyiter) {
@@ -304,7 +304,7 @@ namespace IKFAST_NAMESPACE {
 				r21 = eerot[2*3+1];
 				r22 = eerot[2*3+2];
 				px = eetrans[0]; py = eetrans[1]; pz = eetrans[2];
-				
+
 				new_r00=((IkReal(-1.00000000000000))*(r02));
 				new_r01=r01;
 				new_r02=r00;
@@ -371,11 +371,11 @@ namespace IKFAST_NAMESPACE {
 						{
 							if( j0valid[iij0] && IKabs(cj0array[ij0]-cj0array[iij0]) < IKFAST_SOLUTION_THRESH && IKabs(sj0array[ij0]-sj0array[iij0]) < IKFAST_SOLUTION_THRESH )
 							{
-								j0valid[iij0]=false; _ij0[1] = iij0; break; 
+								j0valid[iij0]=false; _ij0[1] = iij0; break;
 							}
 						}
 						j0 = j0array[ij0]; cj0 = cj0array[ij0]; sj0 = sj0array[ij0];
-						
+
 						{
 							IkReal j2array[2], cj2array[2], sj2array[2];
 							bool j2valid[2]={false};
@@ -420,7 +420,7 @@ namespace IKFAST_NAMESPACE {
 									}
 								}
 								j2 = j2array[ij2]; cj2 = cj2array[ij2]; sj2 = sj2array[ij2];
-								
+
 								{
 									IkReal dummyeval[1];
 									IkReal gconst1;
@@ -452,7 +452,7 @@ namespace IKFAST_NAMESPACE {
 											if( IKabs(dummyeval[0]) < 0.0000010000000000  )
 											{
 												continue;
-												
+
 											} else
 											{
 												{
@@ -515,15 +515,13 @@ namespace IKFAST_NAMESPACE {
 																continue;
 															}
 														}
-														
+
 														rotationfunction0(solutions);
 													}
 												}
-												
 											}
-											
 										}
-										
+
 									} else
 									{
 										{
@@ -585,13 +583,11 @@ namespace IKFAST_NAMESPACE {
 														continue;
 													}
 												}
-												
+
 												rotationfunction0(solutions);
 											}
 										}
-										
 									}
-									
 								}
 							}
 						}
@@ -660,7 +656,7 @@ namespace IKFAST_NAMESPACE {
 							}
 						}
 						j4 = j4array[ij4]; cj4 = cj4array[ij4]; sj4 = sj4array[ij4];
-						
+
 						{
 							IkReal dummyeval[1];
 							IkReal gconst4;
@@ -746,7 +742,7 @@ namespace IKFAST_NAMESPACE {
 																		continue;
 																	}
 																}
-																
+
 																{
 																	IkReal j5array[1], cj5array[1], sj5array[1];
 																	bool j5valid[1]={false};
@@ -793,7 +789,7 @@ namespace IKFAST_NAMESPACE {
 																				continue;
 																			}
 																		}
-																		
+
 																		{
 																			std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																			vinfos[0].jointtype = 1;
@@ -833,7 +829,6 @@ namespace IKFAST_NAMESPACE {
 																}
 															}
 														}
-														
 													} else
 													{
 														evalcond[0]=((IkReal(-3.14159265358979))+(IKfmod(j4, IkReal(6.28318530717959))));
@@ -897,7 +892,7 @@ namespace IKFAST_NAMESPACE {
 																			continue;
 																		}
 																	}
-																	
+
 																	{
 																		IkReal j5array[1], cj5array[1], sj5array[1];
 																		bool j5valid[1]={false};
@@ -944,7 +939,7 @@ namespace IKFAST_NAMESPACE {
 																					continue;
 																				}
 																			}
-																			
+
 																			{
 																				std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																				vinfos[0].jointtype = 1;
@@ -984,20 +979,17 @@ namespace IKFAST_NAMESPACE {
 																	}
 																}
 															}
-															
 														} else
 														{
 															if( 1 )
 															{
 																continue;
-																
 															} else
 															{
 															}
 														}
 													}
 												}
-												
 											} else
 											{
 												{
@@ -1053,7 +1045,7 @@ namespace IKFAST_NAMESPACE {
 																continue;
 															}
 														}
-														
+
 														{
 															IkReal dummyeval[1];
 															IkReal gconst5;
@@ -1135,7 +1127,6 @@ namespace IKFAST_NAMESPACE {
 																										continue;
 																									}
 																								}
-																								
 																								{
 																									std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																									vinfos[0].jointtype = 1;
@@ -1173,7 +1164,7 @@ namespace IKFAST_NAMESPACE {
 																								}
 																							}
 																						}
-																						
+
 																					} else
 																					{
 																						IkReal x125=((new_r12)*(sj3));
@@ -1238,7 +1229,6 @@ namespace IKFAST_NAMESPACE {
 																											continue;
 																										}
 																									}
-																									
 																									{
 																										std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																										vinfos[0].jointtype = 1;
@@ -1276,20 +1266,17 @@ namespace IKFAST_NAMESPACE {
 																									}
 																								}
 																							}
-																							
 																						} else
 																						{
 																							if( 1 )
 																							{
 																								continue;
-																								
 																							} else
 																							{
 																							}
 																						}
 																					}
 																				}
-																				
 																			} else
 																			{
 																				{
@@ -1348,7 +1335,6 @@ namespace IKFAST_NAMESPACE {
 																								continue;
 																							}
 																						}
-																						
 																						{
 																							std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																							vinfos[0].jointtype = 1;
@@ -1386,11 +1372,8 @@ namespace IKFAST_NAMESPACE {
 																						}
 																					}
 																				}
-																				
 																			}
-																			
 																		}
-																		
 																	} else
 																	{
 																		{
@@ -1449,7 +1432,6 @@ namespace IKFAST_NAMESPACE {
 																						continue;
 																					}
 																				}
-																				
 																				{
 																					std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																					vinfos[0].jointtype = 1;
@@ -1487,11 +1469,8 @@ namespace IKFAST_NAMESPACE {
 																				}
 																			}
 																		}
-																		
 																	}
-																	
 																}
-																
 															} else
 															{
 																{
@@ -1550,7 +1529,7 @@ namespace IKFAST_NAMESPACE {
 																				continue;
 																			}
 																		}
-																		
+
 																		{
 																			std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																			vinfos[0].jointtype = 1;
@@ -1588,17 +1567,12 @@ namespace IKFAST_NAMESPACE {
 																		}
 																	}
 																}
-																
 															}
-															
 														}
 													}
 												}
-												
 											}
-											
 										}
-										
 									} else
 									{
 										{
@@ -1654,7 +1628,7 @@ namespace IKFAST_NAMESPACE {
 														continue;
 													}
 												}
-												
+
 												{
 													IkReal dummyeval[1];
 													IkReal gconst5;
@@ -1736,7 +1710,7 @@ namespace IKFAST_NAMESPACE {
 																								continue;
 																							}
 																						}
-																						
+
 																						{
 																							std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																							vinfos[0].jointtype = 1;
@@ -1774,7 +1748,6 @@ namespace IKFAST_NAMESPACE {
 																						}
 																					}
 																				}
-																				
 																			} else
 																			{
 																				IkReal x172=((new_r12)*(sj3));
@@ -1839,7 +1812,6 @@ namespace IKFAST_NAMESPACE {
 																									continue;
 																								}
 																							}
-																							
 																							{
 																								std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																								vinfos[0].jointtype = 1;
@@ -1877,20 +1849,17 @@ namespace IKFAST_NAMESPACE {
 																							}
 																						}
 																					}
-																					
 																				} else
 																				{
 																					if( 1 )
 																					{
 																						continue;
-																						
 																					} else
 																					{
 																					}
 																				}
 																			}
 																		}
-																		
 																	} else
 																	{
 																		{
@@ -1949,7 +1918,7 @@ namespace IKFAST_NAMESPACE {
 																						continue;
 																					}
 																				}
-																				
+
 																				{
 																					std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																					vinfos[0].jointtype = 1;
@@ -1987,11 +1956,8 @@ namespace IKFAST_NAMESPACE {
 																				}
 																			}
 																		}
-																		
 																	}
-																	
 																}
-																
 															} else
 															{
 																{
@@ -2050,7 +2016,7 @@ namespace IKFAST_NAMESPACE {
 																				continue;
 																			}
 																		}
-																		
+
 																		{
 																			std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																			vinfos[0].jointtype = 1;
@@ -2088,11 +2054,8 @@ namespace IKFAST_NAMESPACE {
 																		}
 																	}
 																}
-																
 															}
-															
 														}
-														
 													} else
 													{
 														{
@@ -2151,7 +2114,7 @@ namespace IKFAST_NAMESPACE {
 																		continue;
 																	}
 																}
-																
+
 																{
 																	std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																	vinfos[0].jointtype = 1;
@@ -2189,17 +2152,12 @@ namespace IKFAST_NAMESPACE {
 																}
 															}
 														}
-														
 													}
-													
 												}
 											}
 										}
-										
 									}
-									
 								}
-								
 							} else
 							{
 								{
@@ -2243,7 +2201,7 @@ namespace IKFAST_NAMESPACE {
 												continue;
 											}
 										}
-										
+
 										{
 											IkReal dummyeval[1];
 											IkReal gconst6;
@@ -2259,7 +2217,6 @@ namespace IKFAST_NAMESPACE {
 													if( IKabs(dummyeval[0]) < 0.0000010000000000  )
 													{
 														continue;
-														
 													} else
 													{
 														{
@@ -2324,7 +2281,7 @@ namespace IKFAST_NAMESPACE {
 																		continue;
 																	}
 																}
-																
+
 																{
 																	std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 																	vinfos[0].jointtype = 1;
@@ -2362,11 +2319,8 @@ namespace IKFAST_NAMESPACE {
 																}
 															}
 														}
-														
 													}
-													
 												}
-												
 											} else
 											{
 												{
@@ -2431,7 +2385,7 @@ namespace IKFAST_NAMESPACE {
 																continue;
 															}
 														}
-														
+
 														{
 															std::vector<IkSingleDOFSolutionBase<IkReal> > vinfos(6);
 															vinfos[0].jointtype = 1;
@@ -2469,33 +2423,28 @@ namespace IKFAST_NAMESPACE {
 														}
 													}
 												}
-												
 											}
-											
 										}
 									}
 								}
-								
 							}
-							
 						}
 					}
 				}
 			}
 		}};
-		
-		
+
 		/// solves the inverse kinematics equations.
 		/// \param pfree is an array specifying the free joints of the chain.
 		IKFAST_API bool ComputeIk(const IkReal* eetrans, const IkReal* eerot, const IkReal* pfree, IkSolutionListBase<IkReal>& solutions) {
 			IKSolver solver;
 			return solver.ComputeIk(eetrans,eerot,pfree,solutions);
 		}
-		
+
 		IKFAST_API const char* GetKinematicsHash() { return "<robot:genericrobot - abb_irb2400 (039a63a10572e01f7134c300303ec527)>"; }
-		
+
 		IKFAST_API const char* GetIkFastVersion() { return IKFAST_STRINGIZE(IKFAST_VERSION); }
-		
+
 		#ifdef IKFAST_NAMESPACE
 } // end namespace
 #endif
@@ -2515,7 +2464,7 @@ int main(int argc, char** argv)
 		"There are %d free parameters that have to be specified.\n\n",GetNumFreeParameters());
 		return 1;
 	}
-	
+
 	IkSolutionList<IkReal> solutions;
 	std::vector<IkReal> vfree(GetNumFreeParameters());
 	IkReal eerot[9],eetrans[3];
@@ -2525,12 +2474,12 @@ int main(int argc, char** argv)
 	for(std::size_t i = 0; i < vfree.size(); ++i)
 		vfree[i] = atof(argv[13+i]);
 	bool bSuccess = ComputeIk(eetrans, eerot, vfree.size() > 0 ? &vfree[0] : NULL, solutions);
-	
+
 	if( !bSuccess ) {
 		fprintf(stderr,"Failed to get ik solution\n");
 		return -1;
 	}
-	
+
 	printf("Found %d ik solutions:\n", (int)solutions.GetNumSolutions());
 	std::vector<IkReal> solvalues(GetNumJoints());
 	for(std::size_t i = 0; i < solutions.GetNumSolutions(); ++i) {

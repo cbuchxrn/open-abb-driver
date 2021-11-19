@@ -1,4 +1,0 @@
-# Service to add a joint time waypoint
-float64[6] position
-float64 duration
----

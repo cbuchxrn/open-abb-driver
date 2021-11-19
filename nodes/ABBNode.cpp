@@ -1,680 +1,388 @@
 #include "open_abb_driver/ABBNode.h"
 
-#include "argus_utils/utils/ParamUtils.h"
-#include "argus_utils/geometry/GeometryUtils.h"
+namespace open_abb_driver {
 
-using namespace argus;
+  RobotController::RobotController ( const ros::NodeHandle& nh, const ros::NodeHandle& ph ) : nodeHandle( nh ), privHandle( ph ) {
+    Initialize();
 
-namespace open_abb_driver
-{
-	
-ABBDriver::ABBDriver( const ros::NodeHandle& nh, const ros::NodeHandle& ph ) 
-: _nodeHandle( nh ), _privHandle( ph )
-{
-	Initialize();
-	_setCartesianTrajectoryServer = _privHandle.advertiseService( "set_cartesian_trajectory", 
-		                                                          &ABBDriver::SetCartesianTrajectoryCallback,
-		                                                          this );
-	_addWaypointServer = _privHandle.advertiseService( "add_waypoint", 
-	                                                   &ABBDriver::AddWaypointCallback, 
-	                                                   this);
-	_clearWaypointsServer = _privHandle.advertiseService( "clear_waypoints", 
-	                                                      &ABBDriver::ClearWaypointsCallback, 
-	                                                      this);
-	_executeWaypointsServer = _privHandle.advertiseService( "execute_waypoints", 
-	                                                        &ABBDriver::ExecuteWaypointsCallback, 
-	                                                        this);
-	_getNumWaypointsServer = _privHandle.advertiseService( "get_num_waypoints", 
-	                                                       &ABBDriver::GetNumWaypointsCallback, 
-	                                                       this);
-	_pingServer = _privHandle.advertiseService( "ping", 
-	                                            &ABBDriver::PingCallback, 
-	                                            this);
-	_setCartesianServer = _privHandle.advertiseService( "set_cartesian", 
-	                                                    &ABBDriver::SetCartesianCallback, 
-	                                                    this);
-	_setCartesianLinearServer = _privHandle.advertiseService( "set_cartesian_linear", 
-	                                                          &ABBDriver::SetCartesianLinearCallback, 
-	                                                          this);
-	_getCartesianServer = _privHandle.advertiseService( "get_cartesian", 
-	                                                    &ABBDriver::GetCartesianCallback, 
-	                                                    this);
-	_setJointsServer = _privHandle.advertiseService( "set_joints", 
-	                                                 &ABBDriver::SetJointsCallback, 
-	                                                 this);
-	_getJointsServer = _privHandle.advertiseService( "get_joints", 
-	                                                 &ABBDriver::GetJointsCallback, 
-	                                                 this);
-	_setToolServer = _privHandle.advertiseService( "set_tool", 
-	                                               &ABBDriver::SetToolCallback, 
-	                                               this );
-	_setWorkObjectServer = _privHandle.advertiseService( "set_work_object", 
-	                                                     &ABBDriver::SetWorkObjectCallback, 
-	                                                     this);
-	_setSpeedServer = _privHandle.advertiseService( "set_speed", 
-	                                                &ABBDriver::SetSpeedCallback, 
-	                                                this);
-	_setZoneServer = _privHandle.advertiseService( "set_zone", 
-	                                               &ABBDriver::SetZoneCallback, 
-	                                               this);
-	_setSoftnessServer = _privHandle.advertiseService( "set_softness", 
-	                                                   &ABBDriver::SetSoftnessCallback, 
-	                                                   this );
-	
-	_cartesianPub = _privHandle.advertise<geometry_msgs::PoseStamped>( "pose", 
-	                                                                   10, 
-	                                                                   false );
-	_feedbackWorker = boost::thread( boost::bind( &ABBDriver::FeedbackSpin, this ) );
-}
+    handle_CartesianLog = privHandle.advertise<geometry_msgs::PoseStamped>("pose", 100);
+	handle_JointsLog = privHandle.advertise<sensor_msgs::JointState>("joint_state", 100);
 
-ABBDriver::~ABBDriver() 
-{
-	_feedbackWorker.join();
-}
-
-bool ABBDriver::Initialize()
-{
-	Lock( _armMutex );
-
-	std::string robotIp;
-	int robotMotionPort;
-	int robotLoggerPort;
-	
-	ROS_INFO( "Connecting to the ABB motion server..." );
-	GetParam<std::string>( _privHandle, "ip", robotIp, "192.168.125.1" );
-	GetParam( _privHandle, "motion_port", robotMotionPort, 5000 );
-	_controlInterface = std::make_shared<ABBControlInterface>( robotIp, robotMotionPort );
-	
-	ROS_INFO( "Connecting to the ABB logger server..." );
-	GetParam( _privHandle, "logger_port", robotLoggerPort, 5001 );
-	_feedbackInterface = std::make_shared<ABBFeedbackInterface>( robotIp, robotLoggerPort );
-	
-	ROS_INFO("Setting robot default configuration...");
-	if( !ConfigureRobot() )
-	{
-		ROS_WARN("Not able to set the robot to default configuration.");
-		return false;
+    handle_Ping = privHandle.advertiseService("ping", &RobotController::PingCallback, this);
+    handle_SetCartesian = privHandle.advertiseService("set_cartesian", &RobotController::SetCartesianCallback, this);
+    handle_GetCartesian = privHandle.advertiseService("get_cartesian", &RobotController::GetCartesianCallback, this);
+    handle_SetJoints = privHandle.advertiseService("set_joints", &RobotController::SetJointsCallback, this);
+    handle_GetJoints = privHandle.advertiseService("get_joints", &RobotController::GetJointsCallback, this);
+    handle_SetDIO = privHandle.advertiseService("set_dio", &RobotController::SetDIOCallback, this);
+    handle_GetDIO = privHandle.advertiseService("get_dio", &RobotController::GetDIOCallback, this);
+    handle_SetTool = privHandle.advertiseService("set_tool", &RobotController::SetToolCallback, this);
+    handle_SetWorkObject = privHandle.advertiseService("set_work_object", &RobotController::SetWorkObjectCallback, this);
+    handle_SetSpeed = privHandle.advertiseService("set_speed", &RobotController::SetSpeedCallback, this);
+    handle_SetZone = privHandle.advertiseService("set_zone", &RobotController::SetZoneCallback, this);
+    handle_SetSoftness = privHandle.advertiseService("set_softness", &RobotController::SetSoftnessCallback, this );
+	feedbackWorker = boost::thread( boost::bind( &RobotController::FeedbackSpin, this ) );
 	}
-	
-	return true;
-}
 
-void ABBDriver::FeedbackSpin()
-{
-	while( ros::ok() )
-	{
-		// Feedback interface doesn't interact with anything else and thus
-		// does not need a lock
-		_feedbackInterface->Spin();
-		bool published = false;
+  RobotController::~RobotController () {
+	feedbackWorker.join();
+	}
 
-		while( _feedbackInterface->HasFeedback() )
-		{
-			JointFeedback fb = _feedbackInterface->GetFeedback();
+  bool RobotController::Initialize () {
+		std::string robotIp;
+		int robotMotionPort;
+	int robotLoggerPort;
 
-			// TODO Currently no way to synchronize clocks with ABB arm
-			ros::Time now = fb.stamp;
-			JointAngles angles = fb.joints;
-			angles[2] -= angles[1];
-			
-			// TODO Make this cleaner
-			PoseSE3 fwd = ABBKinematics::ComputeFK( angles );
-			fwd = GetWorkTrans().Inverse() * fwd * GetToolTrans();
-			
-			FixedVectorType<7> fwdv = fwd.ToVector();
-			tf::Vector3 translation( fwdv[0], fwdv[1], fwdv[2] );
-			tf::Quaternion quat( fwdv[4], fwdv[5], fwdv[6], fwdv[3] );
-			tf::Transform transform( quat, translation );
-			tf::StampedTransform msg( transform, now, "abb_base", "abb_end_effector" );
-			_tfBroadcaster.sendTransform( msg );
-			
-			geometry_msgs::PoseStamped poseMsg;
-			poseMsg.pose = PoseToMsg( fwd );
-			poseMsg.header.stamp = now;
-			_cartesianPub.publish( poseMsg );
-			published = true;
+		ROS_INFO( "Connecting to the ABB motion server..." );
+		privHandle.param<std::string>( "ip", robotIp, "192.168.125.1" );
+		privHandle.param( "motion_port", robotMotionPort, 5000 );
+		controlInterface = std::make_shared<ABBControlInterface>( robotIp, robotMotionPort );
+
+
+		ROS_INFO( "Connecting to the ABB logger server..." );
+		privHandle.param( "logger_port", robotLoggerPort, 5001 );
+		feedbackInterface = std::make_shared<ABBFeedbackInterface>( robotIp, robotLoggerPort );
+
+
+		ROS_INFO("Setting robot default configuration...");
+    if ( !ConfigureRobot() ) {
+			ROS_WARN("Not able to set the robot to default configuration.");
+			return false;
+		}
+
+		return true;
+	}
+
+  void RobotController::FeedbackSpin () {
+		FeedbackVisitor visitor( handle_JointsLog, handle_CartesianLog );
+
+    while ( ros::ok() ) {
+			feedbackInterface->Spin();
+
+      while ( feedbackInterface->HasFeedback() ) {
+				Feedback fb = feedbackInterface->GetFeedback();
+				boost::apply_visitor( visitor, fb );
+			}
+		}
+	}
+
+  bool RobotController::SetWorkObject ( double x, double y, double z, double qw, double qx, double qy, double qz ) {
+		currWorkTrans = PoseSE3( x, y, z, qw, qx, qy, qz );
+    if ( !controlInterface->SetWorkObject( x, y, z, qw, qx, qy, qz ) ) {
+      return false;
+    }
+
+		return true;
+	}
+
+  bool RobotController::ConfigureRobot () {
+		double defWOx,defWOy,defWOz,defWOqw,defWOqx,defWOqy,defWOqz;
+		double defTx,defTy,defTz,defTqw,defTqx,defTqy,defTqz;
+		std::vector<double> softness, defSoftness(6, 0.0);
+		int zone;
+		double speedTCP, speedORI;
+
+    // WorkObject
+		privHandle.param("workobject_x",defWOx,0.0);
+		privHandle.param("workobject_y",defWOy,0.0);
+		privHandle.param("workobject_z",defWOz,0.0);
+		privHandle.param("workobject_qw",defWOqw,1.0);
+		privHandle.param("workobject_qx",defWOqx,0.0);
+		privHandle.param("workobject_qy",defWOqy,0.0);
+		privHandle.param("workobject_qz",defWOqz,0.0);
+		PoseSE3 workObj( defWOx, defWOy, defWOz, defWOqw, defWOqx, defWOqy, defWOqz );
+
+    if ( !SetWorkObject( workObj ) ) {
+			ROS_WARN( "Unable to set the work object." );
+			return false;
 		}
 		
-		if( published )
-		{
-			ros::Time now = ros::Time::now();
-			
-			argus::FixedVectorType<7> toolVec = GetToolTrans().ToVector();
-			tf::Vector3 toolTranslation( toolVec[0], toolVec[1], toolVec[2] );
-			tf::Quaternion toolRot( toolVec[4], toolVec[5], toolVec[6], toolVec[3] );
-			tf::Transform toolTrans( toolRot, toolTranslation );
-			tf::StampedTransform toolMsg( toolTrans, now, "abb_end_effector", "abb_tool" );
-			_tfBroadcaster.sendTransform( toolMsg );
-			
-			argus::FixedVectorType<7> workVec = GetWorkTrans().ToVector();
-			tf::Vector3 workTranslation( workVec[0], workVec[1], workVec[2] );
-			tf::Quaternion workRot( workVec[4], workVec[5], workVec[6], workVec[3] );
-			tf::Transform workTrans( workRot, workTranslation );
-			tf::StampedTransform workMsg( workTrans, now, "abb_base", "abb_work_object" );
-			_tfBroadcaster.sendTransform( workMsg );
+    // Tool
+		privHandle.param("tool_x",defTx,0.0);
+		privHandle.param("tool_y",defTy,0.0);
+		privHandle.param("tool_z",defTz,0.0);
+		privHandle.param("tool_qw",defTqw,1.0);
+		privHandle.param("tool_qx",defTqx,0.0);
+		privHandle.param("tool_qy",defTqy,0.0);
+		privHandle.param("tool_qz",defTqz,0.0);
+		PoseSE3 tool( defTx, defTy, defTz, defTqw, defTqx, defTqy, defTqz );
+		
+    if ( !SetTool( tool ) ) {
+			ROS_WARN( "Unable to set the tool." );
+			return false;
 		}
-	}
-}
-
-bool ABBDriver::ConfigureRobot()
-{
-	Lock lock( _armMutex );
-
-	//WorkObject
-	PoseSE3 workObj;
-	GetParamRequired( _privHandle, "work_object_pose", workObj );
-	if( !SetWorkObject( workObj ) )
-	{
-		ROS_WARN( "Unable to set the work object." );
-		return false;
-	}
-	
-	//Tool
-	PoseSE3 tool;
-	GetParamRequired( _privHandle, "tool_pose", tool );
-	if( !SetTool( tool ) )
-	{
-		ROS_WARN( "Unable to set the tool." );
-		return false;
-	}
-	
-	//Zone
-	int zone;
-	GetParam( _privHandle, "zone", zone, 1 );
-	if( !SetZone(zone) )
-	{
-		ROS_WARN( "Unable to set the tracking zone." );
-		return false;
-	}
-	
-	// Softness
-	std::vector<double> softness;
-	if( GetParam( _privHandle, "softness", softness ) )
-	{
+		
+    // Zone
+		privHandle.param("zone",zone,1);
+    if ( !SetZone(zone) ) {
+			ROS_WARN( "Unable to set the tracking zone." );
+			return false;
+		}
+		
+		// Softness
+		privHandle.param("softness", softness, defSoftness );
 		std::array<double,6> softn;
 		std::copy( softness.begin(), softness.end(), softn.begin() );
-		if( !SetSoftness( softn ) )
-		{
+    if ( !SetSoftness( softn ) ) {
 			ROS_WARN( "Unable to set the joint softness." );
 		}
-	}
-	
-	//Speed
-	double speedTCP, speedORI;
-	GetParam( _privHandle, "speed_tcp", speedTCP, 0.250 );
-	GetParam( _privHandle, "speed_ori", speedORI, 0.250 );
-	if( !SetSpeed(speedTCP, speedORI) )
-	{
-		ROS_WARN( "Unable to set the speed." );
-		return false;
-	}
-	
-	// IK Weights
-	std::vector<double> weights, defWeights = {1, 1, 1, 1, 1, 1};
-	if( !GetParam( _privHandle, "ik_weights", weights ) )
-	{
-		weights = defWeights;
-	}
-	if( weights.size() != 6 )
-	{
-		ROS_ERROR( "Must specify 6 IK weights." );
-	}
-	ABBKinematics::JointWeights w;
-	std::copy( weights.begin(), weights.end(), w.begin() );
-
-	_ikSolver = std::make_shared<ABBKinematics>();
-	_ikSolver->SetJointWeights( w );
-
-	_trajPlanner = std::make_shared<TrajectoryGenerator>( _ikSolver );
-	
-	// IK Joint Limits
-	std::vector<double> j1Lim = { -3.146, 3.146 };
-	std::vector<double> j2Lim = { -1.45, 1.9199 };
-	std::vector<double> j3Lim = { -1.0472, 1.1345 }; // This is limit of J3 + J2 (parallelogram)
-	std::vector<double> j4Lim = { -3.49, 3.49 };
-	std::vector<double> j5Lim = { -2.0944, 2.0944 };
-	std::vector<double> j6Lim = { -6.9813, 6.9813 };
-	GetParam( _privHandle, "joint1_limits", j1Lim );
-	GetParam( _privHandle, "joint2_limits", j2Lim );
-	GetParam( _privHandle, "joint3_limits", j3Lim );
-	GetParam( _privHandle, "joint4_limits", j4Lim );
-	GetParam( _privHandle, "joint5_limits", j5Lim );
-	GetParam( _privHandle, "joint6_limits", j6Lim );
-	
-	_jointLimits[0] = std::pair<double,double>( j1Lim[0], j1Lim[1] );
-	_jointLimits[1] = std::pair<double,double>( j2Lim[0], j2Lim[1] );
-	_jointLimits[2] = std::pair<double,double>( j3Lim[0], j3Lim[1] );
-	_jointLimits[3] = std::pair<double,double>( j4Lim[0], j4Lim[1] );
-	_jointLimits[4] = std::pair<double,double>( j5Lim[0], j5Lim[1] );
-	_jointLimits[5] = std::pair<double,double>( j6Lim[0], j6Lim[1] );
-	
-	_ikSolver->SetJointLimits( 0, _jointLimits[0] );
-	_ikSolver->SetJointLimits( 1, _jointLimits[1] );
-	_ikSolver->SetJointLimits( 2, _jointLimits[2] );
-	_ikSolver->SetJointLimits( 3, _jointLimits[3] );
-	_ikSolver->SetJointLimits( 4, _jointLimits[4] );
-	_ikSolver->SetJointLimits( 5, _jointLimits[5] );
-	
-	return true;
-}
-
-bool ABBDriver::AddWaypointCallback( AddWaypoint::Request& req, AddWaypoint::Response& res )
-{
-	std::array<double,6> position;
-	std::copy( req.position.begin(), req.position.end(), position.begin() );
-	return AddWaypoint( position, req.duration );
-}
-
-bool ABBDriver::AddWaypoint( const JointAngles& angles, double duration )
-{
-	Lock lock( _armMutex );	
-	JointAngles a( angles );
-	a[2] += a[1];
-	return _controlInterface->AddWaypoint( a, duration );
-}
-
-bool ABBDriver::ClearWaypointsCallback( ClearWaypoints::Request& req, ClearWaypoints::Response& res )
-{
-	return ClearWaypoints();
-}
-
-bool ABBDriver::ClearWaypoints()
-{
-	Lock lock( _armMutex );	
-	return _controlInterface->ClearWaypoints();
-}
-
-bool ABBDriver::ExecuteWaypointsCallback( ExecuteWaypoints::Request& req, ExecuteWaypoints::Response& res )
-{
-	return ExecuteWaypoints();
-}
-
-bool ABBDriver::ExecuteWaypoints()
-{
-	Lock lock( _armMutex );	
-	return _controlInterface->ExecuteWaypoints();
-}
-
-bool ABBDriver::GetNumWaypointsCallback( GetNumWaypoints::Request& req, GetNumWaypoints::Response& res )
-{
-	return GetNumWaypoints( res.numWaypoints );
-}
-
-bool ABBDriver::GetNumWaypoints( int& num )
-{
-	Lock lock( _armMutex );	
-	return _controlInterface->GetNumWaypoints( num );
-}
-
-bool ABBDriver::PingCallback( Ping::Request& req, Ping::Response& res )
-{
-	return Ping();
-}
-
-bool ABBDriver::Ping()
-{
-	Lock lock( _armMutex );	
-	return _controlInterface->Ping();
-}
-
-bool ABBDriver::SetCartesianCallback( SetCartesian::Request& req, SetCartesian::Response& res )
-{
-	PoseSE3 tform( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
-	return SetCartesian( tform );
-}
-
-bool ABBDriver::SetCartesianTrajectoryCallback( SetCartesianTrajectory::Request& req,
-		                                        SetCartesianTrajectory::Response& res)
-{
-	if( req.poses.size() != req.durations.size())
-	{
-		ROS_ERROR_STREAM("Cartesian trajectory poses and durations not same length");
-		return false;
-	}
-
-	PoseSE3 currentPose;
-	if( !GetCartesian( currentPose ) )
-	{
-		ROS_ERROR_STREAM( "Could not get current end effector pose." );
-		return false;
-	}
-	currentPose = GetWorkTrans() * currentPose * GetToolTrans().Inverse();
-
-	CartesianTrajectory traj;
-	CartesianWaypoint wp;
-	wp.pose = currentPose;
-	wp.time = ros::Duration( 0 );
-	traj.push_back( wp );
-
-	for( unsigned int i = 0; i < req.poses.size(); ++i )
-	{
-		PoseSE3 tform = MsgToPose( req.poses[i] );
-		wp.pose = GetWorkTrans() * tform * GetToolTrans().Inverse();
-		wp.time = ros::Duration( req.durations[i] );
-		traj.push_back( wp );
-	}
-
-	if( req.interpolate )
-	{
-		if( !InterpolateLinearTrajectory(traj, req.num_waypoints) )
-		{
-			ROS_ERROR_STREAM( "Could not interpolate trajectory." );
+		
+    // Speed
+    privHandle.param("speed_tcp",speedTCP,0.5);
+    privHandle.param("speed_ori",speedORI,0.5);
+    if ( !SetSpeed(speedTCP, speedORI) ) {
+			ROS_WARN( "Unable to set the speed." );
 			return false;
 		}
-	}
-
-	return SetCartesianTrajectory(traj);
-}
-
-bool ABBDriver::SetCartesianLinearCallback( SetCartesianLinear::Request& req,
-                                            SetCartesianLinear::Response& res )
-{
-	PoseSE3 pose = MsgToPose( req.pose );
-	return SetCartesianLinear( pose, req.duration, req.num_waypoints );
-}
-
-bool ABBDriver::SetCartesianLinear( const PoseSE3& pose,
-                                    double duration, 
-									unsigned int numWaypoints )
-{
-	PoseSE3 targetPose = GetWorkTrans() * pose * GetToolTrans().Inverse();
-	PoseSE3 currentPose;
-	if( !GetCartesian( currentPose ) )
-	{
-		ROS_ERROR_STREAM( "Could not get current end effector pose." );
-		return false;
-	}
-	currentPose = GetWorkTrans() * currentPose * GetToolTrans().Inverse();
-
-	// PoseSE3 movement = targetPose.Inverse() * currentPose;
-	PoseSE3 movement = currentPose.Inverse() * targetPose;
-	PoseSE3::TangentVector bodyVel = PoseSE3::Log( movement );
-	PoseSE3 delta = PoseSE3::Exp( bodyVel / numWaypoints );
-	double dt = duration / numWaypoints;
-
-	CartesianTrajectory traj;
-	PoseSE3 acc = currentPose;
-	for( unsigned int i = 0; i < numWaypoints; ++i )
-	{
-		acc = acc * delta;
-		CartesianWaypoint wp;
-		wp.pose = acc;
-		wp.time = ros::Duration( dt );
-		traj.push_back( wp );
-	}
-
-	return SetCartesianTrajectory(traj);
-}
-
-bool ABBDriver::InterpolateLinearTrajectory( CartesianTrajectory& traj,
-		                                     const std::vector<unsigned int>& numPoints )
-{
-	if( traj.size() != numPoints.size() + 1 ) { return false; }
-	if( traj.size() < 2 ) { return false; }
-
-	CartesianTrajectory out;
-	for( unsigned int i = 0; i < traj.size() - 1; ++i )
-	{
-		PoseSE3 currentPose = traj[i].pose;
-		PoseSE3 targetPose = traj[i+1].pose;
-
-		PoseSE3 movement = currentPose.Inverse() * targetPose;
-		PoseSE3::TangentVector bodyVel = PoseSE3::Log( movement );
-		PoseSE3 delta = PoseSE3::Exp( bodyVel / numPoints[i] );
-		double dt = traj[i+1].time.toSec() / numPoints[i];
-
-		PoseSE3 acc = currentPose;
-		for( unsigned int j = 0; j < numPoints[i]; ++j )
-		{
-			acc = acc * delta;
-			CartesianWaypoint wp;
-			wp.pose = acc;
-			wp.time = ros::Duration( dt );
-			out.push_back( wp );
+		
+		// IK Weights
+		std::vector<double> weights, defWeights = {1, 1, 1, 1, 1, 1};
+		privHandle.param( "ik_weights", weights, defWeights );
+    if ( weights.size() != 6 ) {
+			ROS_ERROR( "Must specify 6 IK weights." );
 		}
+		ABBKinematics::JointWeights w;
+		std::copy( weights.begin(), weights.end(), w.begin() );
+		ikSolver.SetJointWeights( w );
+		
+		// IK Joint Limits
+		std::vector<double> j1Lim, j2Lim, j3Lim, j4Lim, j5Lim, j6Lim;
+		std::vector<double> j1Def = { -3.146, 3.146 };
+		std::vector<double> j2Def = { -1.7453, 1.9199 };
+		std::vector<double> j3Def = { -1.0472, 1.1345 }; // This is limit of J3 + J2 (parallelogram)
+		std::vector<double> j4Def = { -3.49, 3.49 };
+		std::vector<double> j5Def = { -2.0944, 2.0944 };
+		std::vector<double> j6Def = { -6.9813, 6.9813 };
+		privHandle.param( "joint1_limits", j1Lim, j1Def );
+		privHandle.param( "joint2_limits", j2Lim, j2Def );
+		privHandle.param( "joint3_limits", j3Lim, j3Def );
+		privHandle.param( "joint4_limits", j4Lim, j4Def );
+		privHandle.param( "joint5_limits", j5Lim, j5Def );
+		privHandle.param( "joint6_limits", j6Lim, j6Def );
+		
+		ikSolver.SetJointLimits( 0, std::pair<double,double>( j1Lim[0], j1Lim[1] ) );
+		ikSolver.SetJointLimits( 1, std::pair<double,double>( j2Lim[0], j2Lim[1] ) );
+		ikSolver.SetJointLimits( 2, std::pair<double,double>( j3Lim[0], j3Lim[1] ) );
+		ikSolver.SetJointLimits( 3, std::pair<double,double>( j4Lim[0], j4Lim[1] ) );
+		ikSolver.SetJointLimits( 4, std::pair<double,double>( j5Lim[0], j5Lim[1] ) );
+		ikSolver.SetJointLimits( 5, std::pair<double,double>( j6Lim[0], j6Lim[1] ) );
+		
+		return true;
 	}
-	traj = out;
-	return true;
-}
+	
+  bool RobotController::PingCallback ( Ping::Request& req, Ping::Response& res ) {
+		return Ping();
+	}
+	
+  bool RobotController::Ping () {
+		return controlInterface->Ping();
+	}
+	
+  bool RobotController::SetCartesianCallback ( SetCartesian::Request& req, SetCartesian::Response& res ) {
+    PoseSE3 tform( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
+		
+    return SetCartesian( tform );
+	}
+	
+  bool RobotController::SetCartesian ( const PoseSE3& pose ) {
+    PoseSE3 eff = currWorkTrans*pose*currToolTrans.Inverse();
+		
+		std::vector<JointAngles> ikSols;
 
-bool ABBDriver::SetCartesianTrajectory( const CartesianTrajectory& traj )
-{
-	Lock lock( _armMutex );
-
-	JointAngles currentJoints;
-	if( !GetJoints( currentJoints ) )
-	{
-		ROS_ERROR_STREAM( "Could not get current joint values." );
-		return false;
-	}
-	JointTrajectory jTraj;
-	try
-	{
-		jTraj = _trajPlanner->GenerateTrajectory( currentJoints, traj );
-	}
-	catch( std::runtime_error& e )
-	{
-		ROS_ERROR_STREAM( "Could not find trajectory: " << e.what() );
-		return false;
-	}
-
-	if( !_controlInterface->ClearWaypoints() )
-	{
-		ROS_ERROR_STREAM( "Could not clear waypoint buffer." );
-		return false;
-	}
-
-	for( unsigned int i = 0; i < jTraj.size(); ++i )
-	{
-		// ROS_INFO_STREAM( "Adding: " << jTraj[i].joints << ", " << jTraj[i].time );
-		if( !AddWaypoint( jTraj[i].joints, jTraj[i].time.toSec() ) )
-		{
-			ROS_ERROR_STREAM( "Could not add waypoint to buffer." );
+    if ( !ikSolver.ComputeIK( eff, ikSols ) ) {
+      ROS_ERROR( "Could not find inverse kinematic solution." );
 			return false;
 		}
-	}
-
-	int num;
-	GetNumWaypoints( num );
-	// ROS_INFO_STREAM( "Has " << num << " waypoints" );
-	if( num == 0 ) { return true; }
-
-	return _controlInterface->ExecuteWaypoints();
-}
-
-bool ABBDriver::SetCartesian( const PoseSE3& pose )
-{
-	Lock lock( _armMutex );	
-	
-	PoseSE3 eff = GetWorkTrans()*pose*GetToolTrans().Inverse();
-	
-	std::vector<JointAngles> ikSols;
-	if( !_ikSolver->ComputeIK( eff, ikSols ) || ikSols.size() == 0 )
-	{
-		ROS_ERROR_STREAM( "Could not find inverse kinematic solution for " << eff );
-		return false;
-	}
-	
-	JointAngles current;
-	GetJoints( current );
-	JointAngles best = _ikSolver->GetBestSolution( current, ikSols );
+		
+		JointAngles current;
+		controlInterface->GetJoints( current );
+		JointAngles best = ikSolver.GetBestSolution( current, ikSols );
 
 // 		std::cout << "IK: " << best[0] << " " << best[1] << " " << best[2] << " " << best[3]
 // 			<< " " << best[4] << " " << best[5] << std::endl;
-	
-	return( SetJoints( best ) );
-}
 
-bool ABBDriver::GetCartesianCallback( GetCartesian::Request& req, GetCartesian::Response& res )
-{
-	PoseSE3 pose;
-	if( !GetCartesian( pose ) ) { return false; }
-	
-	argus::FixedVectorType<7> vec = pose.ToVector();
-	res.x = vec[0];
-	res.y = vec[1];
-	res.z = vec[2];
-	res.qw = vec[3];
-	res.qx = vec[4];
-	res.qy = vec[5];
-	res.qz = vec[6];
-	return true;
-}
-
-bool ABBDriver::GetCartesian( PoseSE3& pose )
-{
-	Lock lock( _armMutex );		
-	JointAngles angles;
-	
-	if( !GetJoints( angles ) ) { return false; }
-	PoseSE3 fwd = ABBKinematics::ComputeFK( angles );
-	pose = GetWorkTrans().Inverse()*fwd*GetToolTrans();
-	return true;
-}
-
-bool ABBDriver::SetJointsCallback( SetJoints::Request& req, SetJoints::Response& res )
-{	
-	// ROS currently uses boost::array, so we have to copy it to maintain compatibility
-	std::array<double,6> position;
-	std::copy( req.position.begin(), req.position.end(), position.begin() );
-	return SetJoints( position );
-}
-
-bool ABBDriver::SetJoints( const JointAngles& angles )
-{
-	Lock lock( _armMutex );		
-	JointAngles a( angles );
-	a[2] += a[1]; // Compensate for combined joints differing from ikfast model
-	
-	for( unsigned int i = 0; i < 6; i++ )
-	{
-		if( angles[i] < _jointLimits[i].first || angles[i] > _jointLimits[i].second )
-		{
-			ROS_ERROR_STREAM( "Commanded joint " << i+1 << " angle of " << angles[i] << " exceeds limits ("
-				<< _jointLimits[i].first << ", " << _jointLimits[i].second << ")." );
-			return false;
-		}
+    return ( controlInterface->SetJoints( best ) );
 	}
-	return _controlInterface->SetJoints( a );
-}
+	
+  bool RobotController::GetCartesianCallback ( GetCartesian::Request& req, GetCartesian::Response& res ) {
+		PoseSE3 pose;
 
-bool ABBDriver::GetJointsCallback( GetJoints::Request& req, GetJoints::Response& res )
-{
-	std::array<double,6> position;
-	if( GetJoints(position) )
-	{
-		std::copy( position.begin(), position.end(), res.joints.begin() );
+    if ( !GetCartesian( pose ) ) {
+      return false;
+    }
+		
+		PoseSE3::Vector vec = pose.ToVector();
+		res.x = vec[0];
+		res.y = vec[1];
+		res.z = vec[2];
+		res.qw = vec[3];
+		res.qx = vec[4];
+		res.qy = vec[5];
+		res.qz = vec[6];
+
 		return true;
 	}
-	else { return false; }
-}
-
-bool ABBDriver::GetJoints( JointAngles& angles )
-{
-	Lock lock( _armMutex );	
-	if( !_controlInterface->GetJoints( angles ) ) { return false; }
-	angles[2] -= angles[1]; // Compensate for combined joints differing from ikfast model
-	return true;
-}
-
-bool ABBDriver::SetToolCallback( SetTool::Request& req, SetTool::Response& res )
-{
-	PoseSE3 tool( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
-	return SetTool( tool );
-}
-
-bool ABBDriver::SetTool( const PoseSE3& pose )
-{
-	Lock lock( _armMutex );
-	SetToolTrans( pose );
-	argus::FixedVectorType<7> vec = GetToolTrans().ToVector();
-	return _controlInterface->SetTool( vec[0], vec[1], vec[2], vec[3], vec[4], vec[5], vec[6] );
-}
-
-bool ABBDriver::SetWorkObjectCallback( SetWorkObject::Request& req, SetWorkObject::Response& res )
-{
-	PoseSE3 work( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
-	return SetWorkObject( work );
-}
-
-bool ABBDriver::SetWorkObject( const PoseSE3& pose )
-{
-	Lock lock( _armMutex );
-	SetWorkTrans( pose );
-	argus::FixedVectorType<7> vec = GetWorkTrans().ToVector();
-	return _controlInterface->SetWorkObject( vec[0], vec[1], vec[2], vec[3], vec[4], vec[5], vec[6] );
-}
-
-bool ABBDriver::SetSpeedCallback( SetSpeed::Request& req, SetSpeed::Response& res )
-{
-	return SetSpeed(req.tcp, req.ori);
-}
-
-bool ABBDriver::SetSpeed( double linear, double orientation )
-{
-	Lock lock( _armMutex );
 	
-	return _controlInterface->SetSpeed( linear, orientation );
-}
+  bool RobotController::GetCartesian ( PoseSE3& pose ) {
+		double x, y, z, qw, qx, qy, qz;
+		
+    if ( !controlInterface->GetCartesian( x, y, z, qw, qx, qy, qz ) ) {
+      return false;
+    }
+		pose = PoseSE3( x, y, z, qw, qx, qz );
 
-bool ABBDriver::SetZoneCallback( SetZone::Request& req, SetZone::Response& res )
-{
-	return SetZone(req.mode);
-}
-
-bool ABBDriver::SetZone( unsigned int zone )
-{
-	Lock lock( _armMutex );
+		return true;
+	}
 	
-	return _controlInterface->SetZone( zone );
-}
+  bool RobotController::SetJointsCallback ( SetJoints::Request& req, SetJoints::Response& res ) {
+		// ROS currently uses boost::array, so we have to copy it to maintain compatibility
+		std::array<double,6> position;
+		std::copy( req.position.begin(), req.position.end(), position.begin() );
 
-bool ABBDriver::SetSoftnessCallback( SetSoftness::Request& req, SetSoftness::Response& res )
-{
-	std::array<double,6> softness;
-	std::copy( req.softness.begin(), req.softness.end(), softness.begin() );
-	return SetSoftness( softness );
-}
-
-bool ABBDriver::SetSoftness( const std::array<double,6>& softness )
-{
-	Lock lock( _armMutex );
+		return SetJoints( position );
+	}
 	
-	return _controlInterface->SetSoftness( softness );
+  bool RobotController::SetJoints ( const JointAngles& angles ) {
+		return controlInterface->SetJoints( angles );
+	}
+	
+  bool RobotController::GetJointsCallback ( GetJoints::Request& req, GetJoints::Response& res ) {
+		std::array<double,6> position;
+
+    if ( GetJoints( position ) ) {
+			std::copy( position.begin(), position.end(), res.joints.begin() );
+			return true;
+		}
+		else { return false; }
+	}
+	
+  bool RobotController::GetJoints ( JointAngles& angles ) {
+		return controlInterface->GetJoints( angles );
+	}
+
+  bool RobotController::SetDIOCallback ( SetDIO::Request& req, SetDIO::Response& res ) {
+    return SetDIO( req.state, req.DIO_num );
+  }
+
+  bool RobotController::SetDIO ( int state, std::string DIO_num ) {
+    return controlInterface->SetDIO( state, DIO_num );
+  }
+
+  bool RobotController::GetDIOCallback ( GetDIO::Request& req, GetDIO::Response& res ) {
+    int state;
+
+    if ( GetDIO( req.DIO_num, state ) ) {
+      res.state = state;
+      return true;
+    }
+    else { return false; }
+  }
+
+  bool RobotController::GetDIO ( std::string DIO_num, int& state ) {
+    return controlInterface->GetDIO( DIO_num, state );
+  }
+
+  bool RobotController::SetToolCallback ( SetTool::Request& req, SetTool::Response& res ) {
+		PoseSE3 tool( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
+
+		return SetTool( tool );
+	}
+	
+  bool RobotController::SetTool ( const PoseSE3& pose ) {
+		currToolTrans = pose;
+		PoseSE3::Vector vec = currToolTrans.ToVector();
+
+		return controlInterface->SetTool( vec[0], vec[1], vec[2], vec[3], vec[4], vec[5], vec[6] );
+	}
+	
+  bool RobotController::SetWorkObjectCallback ( SetWorkObject::Request& req, SetWorkObject::Response& res ) {
+		PoseSE3 work( req.x, req.y, req.z, req.qw, req.qx, req.qy, req.qz );
+
+		return SetWorkObject( work );
+	}
+	
+  bool RobotController::SetWorkObject ( const PoseSE3& pose ) {
+		currWorkTrans = pose;
+		PoseSE3::Vector vec = currWorkTrans.ToVector();
+
+		return controlInterface->SetWorkObject( vec[0], vec[1], vec[2], vec[3], vec[4], vec[5], vec[6] );
+	}
+	
+  bool RobotController::SetSpeedCallback ( SetSpeed::Request& req, SetSpeed::Response& res ) {
+		return SetSpeed(req.tcp, req.ori);
+	}
+	
+  bool RobotController::SetSpeed ( double linear, double orientation ) {
+		return controlInterface->SetSpeed( linear, orientation );
+	}
+	
+  bool RobotController::SetZoneCallback ( SetZone::Request& req, SetZone::Response& res ) {
+		return SetZone(req.mode);
+	}
+	
+  bool RobotController::SetZone ( unsigned int zone ) {
+		return controlInterface->SetZone( zone );
+	}
+	
+  bool RobotController::SetSoftnessCallback ( SetSoftness::Request& req, SetSoftness::Response& res ) {
+		std::array<double,6> softness;
+		std::copy( req.softness.begin(), req.softness.end(), softness.begin() );
+
+		return SetSoftness( softness );
+	}
+	
+  bool RobotController::SetSoftness ( const std::array<double,6>& softness ) {
+		return controlInterface->SetSoftness( softness );
+	}
+	
+  FeedbackVisitor::FeedbackVisitor ( ros::Publisher& handle_Joints, ros::Publisher& handle_Cartesian ) : jointPub( handle_Joints ), cartesianPub( handle_Cartesian ) {}
+	
+  void FeedbackVisitor::operator() ( const JointFeedback& fb ) {
+		sensor_msgs::JointState jointMsg;
+		ros::Time now = ros::Time::now();
+		jointMsg.header.stamp = now; // TODO Use abb timestamp
+
+    for ( unsigned int i = 0; i < 6; i++ ) {
+			jointMsg.name.push_back( "joint_"+std::to_string( i+1 ) );
+			jointMsg.position.push_back( fb.joints[i] );
+		}
+		jointPub.publish( jointMsg );
+		
+		JointAngles angles;
+		std::copy( fb.joints.begin(), fb.joints.end(), angles.begin() );
+		PoseSE3 fwd = ABBKinematics::ComputeFK( angles );
+		PoseSE3::Vector fwdv = fwd.ToVector(); //[x,y,z,qw,qx,qy,qz]
+		geometry_msgs::PoseStamped poseMsg;
+		poseMsg.header.stamp = now;
+		poseMsg.pose.position.x = fwdv[0];
+		poseMsg.pose.position.y = fwdv[1];
+		poseMsg.pose.position.z = fwdv[2];
+		poseMsg.pose.orientation.w = fwdv[3];
+		poseMsg.pose.orientation.x = fwdv[4];
+		poseMsg.pose.orientation.y = fwdv[5];
+		poseMsg.pose.orientation.z = fwdv[6];
+		cartesianPub.publish( poseMsg );
+	}
+	
+  void FeedbackVisitor::operator() ( const CartesianFeedback& fb ) {
+		geometry_msgs::PoseStamped poseMsg;
+		poseMsg.header.stamp = ros::Time::now();
+		poseMsg.pose.position.x = fb.x;
+		poseMsg.pose.position.y = fb.y;
+		poseMsg.pose.position.z = fb.z;
+		poseMsg.pose.orientation.w = fb.qw;
+		poseMsg.pose.orientation.x = fb.qx;
+		poseMsg.pose.orientation.y = fb.qy;
+		poseMsg.pose.orientation.z = fb.qz;
+		cartesianPub.publish( poseMsg );
+	}
+	
 }
 
-PoseSE3 ABBDriver::GetWorkTrans() const
-{
-	Lock lock( _cacheMutex );
-	return _currWorkTrans;
-}
-
-void ABBDriver::SetWorkTrans( const PoseSE3& pose )
-{
-	Lock lock( _cacheMutex );
-	_currWorkTrans = pose;
-}
-
-PoseSE3 ABBDriver::GetToolTrans() const
-{
-	Lock lock( _cacheMutex );
-	return _currToolTrans;
-}
-
-void ABBDriver::SetToolTrans( const PoseSE3& pose )
-{
-	Lock lock( _cacheMutex );
-	_currToolTrans = pose;
-}
-
-} // end namespace open_abb_driver
-
-int main(int argc, char** argv)
-{
-	ros::init(argc, argv, "abb_driver");
+int main (int argc, char** argv) {
+	ros::init(argc, argv, "controller");
 	ros::NodeHandle nh;
 	ros::NodeHandle ph( "~" );
-	open_abb_driver::ABBDriver ABBrobot( nh, ph );
+	open_abb_driver::RobotController ABBrobot( nh, ph );
 	
 	ros::MultiThreadedSpinner spinner(2);
 	spinner.spin();
